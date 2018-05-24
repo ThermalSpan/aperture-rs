@@ -29,6 +29,12 @@ pub struct Camera {
     window_height: f32,
     aspect_ratio: f32,
 
+    prev_mouse_coords: Vector2<f32>,
+
+    // These are for maintaining state with the arcball calculations
+    original_rotation: Quaternion<f32>,
+    original_sphere_point: Vector3<f32>,
+
     /// How far the camera is from the target in world coordinates
     #[get = "pub"] #[set = "pub"]
     distance: f32,
@@ -43,7 +49,7 @@ pub struct Camera {
 
     /// How the camera is oriented relative to the target in world coordinates
     #[get = "pub"] #[set = "pub"]
-    rotation: Basis3<f32>,
+    rotation: Quaternion<f32>,
 
     /// The factor applied to the number of pixels from each scroll event,
     /// I have default set of (1 / 200)
@@ -61,7 +67,10 @@ impl Camera {
             state: CamState::Idle,
             target: Vector3::new(0.0, 0.0, 0.0),
             distance: 50.0,
-            rotation: Basis3::from_angle_y(Rad(-0.5 * f32::consts::PI)),
+            prev_mouse_coords: Vector2::zero(),
+            original_rotation: Quaternion::one(), 
+            original_sphere_point: Vector3::zero(), 
+            rotation: Quaternion::from(Basis3::from_angle_y(Rad(-0.5 * f32::consts::PI))),
             window_width: 1.0,
             window_height: 1.0,
             aspect_ratio: 1.0,
@@ -92,11 +101,14 @@ impl Camera {
 
     /// Get the world coordinates to clipspace coordinates transform
     /// If you are unsure, this is probably the transform you want from the camera. 
-    pub fn get_clipsace_transform(&self) -> Matrix4<f32> {
+    pub fn get_clipspace_transform(&self) -> Matrix4<f32> {
         // We need to move to transform the world so that the origin is the cam's pos
         let inverse_pos = -self.get_position();
         let pos_transform = Matrix4::from_translation(inverse_pos);
-        let rotation_transform = Matrix3::from(self.rotation.invert());
+
+        let rotation_basis = Basis3::from(self.rotation);
+
+        let rotation_transform = Matrix3::from(rotation_basis.invert());
 
         let perspective_transform = fov_perspective_transform(
             self.field_of_view,
@@ -108,35 +120,43 @@ impl Camera {
         perspective_transform * Matrix4::from(rotation_transform) * pos_transform
     }
 
+    fn mouse_to_sphere_point(&self, mouse_coords: Vector2<f32>) -> Vector3<f32> {
+        // Figure out radius of arc-ball control circle in pixels
+        // If aspect ratio > 1.0 then height is smaller,
+        // So normalize mouse point by removing center then diving by that radius
+        let pixel_radius = (if self.aspect_ratio >= 1.0 {
+            self.window_height
+        } else {
+            self.window_width
+        }) / 2.0;
+        let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
+        let mouse_point = (mouse_coords - screen_center) / pixel_radius;
+
+        // Now we find point on sphere by clamping to unit circle
+        // and finding z component
+        let mouse_radius = mouse_point.magnitude2();
+        let sphere_point = if mouse_radius > 1.0 {
+            (mouse_point / mouse_radius).extend(0.0)
+        } else {
+            mouse_point.extend((1.0 - mouse_radius).sqrt())
+        };
+        
+        // If we were contraining axis, that would go here
+ 
+        sphere_point
+    }
+
     /// Handle mouse movement as pixel coordinates
     pub fn handle_mouse_move (&mut self, mouse_x: f32, mouse_y: f32) {
+        self.prev_mouse_coords = Vector2::new(mouse_x, mouse_y);
+
         match self.state {
             CamState::Tumble => {
-                // Figure out radius of arc-ball control circle in pixels
-                // If aspect ratio > 1.0 then height is smaller,
-                // So normalize mouse point by removing center then diving by that radius
-                let pixel_radius = (if self.aspect_ratio >= 1.0 {
-                    self.window_height
-                } else {
-                    self.window_width
-                }) / 2.0;
-                let mouse_pixels = Vector2::new(mouse_x, mouse_y);
-                let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
-                let mouse_point = (mouse_pixels - screen_center) / pixel_radius;
-
-                // Now we find point on sphere by clamping to unit circle
-                // and finding z component
-                let mouse_radius = mouse_point.magnitude();
-                let _sphere_point = if mouse_radius > 1.0 {
-                    (mouse_point / mouse_radius).extend(0.0)
-                } else {
-                    mouse_point.extend((1.0 - mouse_radius).sqrt())
-                };
-
-                // If we were contraining axis, that would go here
-                
-
-                println!("{:?}", mouse_point);
+                let sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
+                let rotation_axis = self.original_sphere_point.cross(sphere_point);
+                let scalar = self.original_sphere_point.dot(sphere_point);
+                let move_rotation = Quaternion::from_sv(scalar, rotation_axis);
+                self.rotation =  move_rotation * self.original_rotation;
             },
             _ => ()
         }
@@ -147,6 +167,9 @@ impl Camera {
         match (button, state) {
             (MouseButton::Left, ButtonState::Pressed) => {
                 self.state = CamState::Tumble;
+                self.original_sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
+                self.original_rotation = self.rotation.clone();
+                println!("Mouse pressed");
             },
             (_, ButtonState::Released) => {
                 self.state = CamState::Idle;
