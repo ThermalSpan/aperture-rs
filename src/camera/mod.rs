@@ -41,13 +41,29 @@ pub struct Camera {
 
     prev_mouse_coords: Vector2<f32>,
 
-    // These are for maintaining state with the arcball calculations
+    default_target: Vector3<f32>,
+    default_distance: f32,
+    default_rotation: Quaternion<f32>,
+    default_transition_duration: f32,
+
+    // These are for maintaining the starting state when switching to
+    // Tumble, Pan, and Transition
     original_rotation: Quaternion<f32>,
+    original_distance: f32,
     original_sphere_point: Vector3<f32>,
 
     // These are for maintaining state with the pan calculations
     original_target: Vector3<f32>,
     original_pan_point: Vector3<f32>,
+
+    // Transition
+    transition_end_rotation: Quaternion<f32>,
+    transition_end_target: Vector3<f32>,
+    transition_end_distance: f32,
+
+    // milliseconds
+    transition_duration: f32,
+    transition_completed: f32,
 
     /// How far the camera is from the target in world coordinates
     #[get = "pub"]
@@ -89,11 +105,26 @@ impl Camera {
             distance: 50.0,
             prev_mouse_coords: Vector2::zero(),
 
+            // Default state for camera transition
+            default_target: Vector3::zero(),
+            default_distance: 50.0,
+            default_rotation: Quaternion::from(Basis3::from_angle_y(Rad(-0.5 * f32::consts::PI))),
+            default_transition_duration: 450.0,
+
             // The state calculations can the identities, doesn't matter
             original_rotation: Quaternion::one(),
-            original_sphere_point: Vector3::zero(),
             original_target: Vector3::zero(),
+            original_distance: 1.0,
+
+            // These are the
+            original_sphere_point: Vector3::zero(),
             original_pan_point: Vector3::zero(),
+
+            transition_end_rotation: Quaternion::one(),
+            transition_end_target: Vector3::zero(),
+            transition_end_distance: 1.0,
+            transition_duration: Default::default(),
+            transition_completed: Default::default(),
 
             rotation: Quaternion::from(Basis3::from_angle_y(Rad(-0.5 * f32::consts::PI))),
             window_width: 1.0,
@@ -108,10 +139,69 @@ impl Camera {
     /// The update function should be called once per frame in order to maintain the aspect ratio
     /// and the timing for orbital mechanics. Ideally it should be called at the begining of your
     /// "simulation loop", right after you have calculated your frame time.
+    /// TODO: Duration should be a f32 millis too
     pub fn update(&mut self, elapsed_time: Duration, window_width: f32, window_height: f32) {
         self.window_width = window_width;
         self.window_height = window_height;
         self.aspect_ratio = window_width / window_height;
+
+        match self.state {
+            CamState::Transition => {
+                let elapsed_millis =
+                    (1000 * elapsed_time.as_secs() + elapsed_time.subsec_millis() as u64) as f32;
+                self.transition_completed += elapsed_millis;
+
+                if self.transition_completed >= self.transition_duration {
+                    self.state = CamState::Idle;
+                } else {
+                    let t = self.transition_completed / self.transition_duration;
+
+                    self.target = (1.0 - t) * self.original_target + t * self.transition_end_target;
+                    self.distance = (1.0 - t) * self.original_distance +
+                        t * self.transition_end_distance;
+                    self.rotation = self.original_rotation.slerp(
+                        self.transition_end_rotation,
+                        t,
+                    );
+                }
+            }
+            _ => (),
+        }
+    }
+
+    /// Use this to setup a camera transition
+    pub fn start_transition(
+        &mut self,
+        end_target: Vector3<f32>,
+        end_rotation: Quaternion<f32>,
+        end_distance: f32,
+        transition_duration: f32,
+    ) {
+        self.state = CamState::Transition;
+
+        self.original_target = self.target;
+        self.original_rotation = self.rotation;
+        self.original_distance = self.distance;
+
+        self.transition_end_target = end_target;
+        self.transition_end_rotation = end_rotation;
+        self.transition_end_distance = end_distance;
+        self.transition_duration = transition_duration;
+        self.transition_completed = 0.0;
+    }
+
+    pub fn transition_to_default(&mut self) {
+        let rotation = self.default_rotation.clone();
+        let target = self.default_target.clone();
+        let distance = self.default_distance.clone();
+        let duration = self.default_transition_duration;
+        self.start_transition(target, rotation, distance, duration);
+    }
+
+    pub fn set_current_as_default(&mut self) {
+        self.default_rotation = self.rotation;
+        self.default_distance = self.distance;
+        self.default_target = self.target;
     }
 
     /// Get the position of the camera in world coordinates

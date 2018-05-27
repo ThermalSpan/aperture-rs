@@ -129,6 +129,19 @@ void main() {
                             _ => (), 
                         }
                     }
+                    glutin::WindowEvent::KeyboardInput {
+                        input: glutin::KeyboardInput { scancode, state, .. }, ..
+                    } => {
+                        match (scancode, state) {
+                            (1, glutin::ElementState::Pressed) => {
+                                cam.set_current_as_default();
+                            }
+                            (2, glutin::ElementState::Pressed) => {
+                                cam.transition_to_default();
+                            }
+                            _ => (),
+                        }
+                    }
                     _ => (),
                 }
             }
