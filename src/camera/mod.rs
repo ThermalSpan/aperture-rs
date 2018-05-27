@@ -34,6 +34,7 @@ pub enum ButtonState {
 /// correct aspect ratio and timing for orbital mechanics, it needs to be updated every frame.
 #[derive(Getters, Setters)]
 pub struct Camera {
+    // TODO wrap up camera state stuff into a camera state type struct
     state: CamState,
     window_width: f32,
     window_height: f32,
@@ -44,6 +45,7 @@ pub struct Camera {
     default_target: Vector3<f32>,
     default_distance: f32,
     default_rotation: Quaternion<f32>,
+
     default_transition_duration: f32,
 
     // These are for maintaining the starting state when switching to
@@ -190,6 +192,9 @@ impl Camera {
         self.transition_completed = 0.0;
     }
 
+    // TODO, transitions should be moved to another module I think.
+    // could have state stack, with default at bottom,
+    // could also have snap to axis and thigs like that
     pub fn transition_to_default(&mut self) {
         let rotation = self.default_rotation.clone();
         let target = self.default_target.clone();
@@ -272,14 +277,14 @@ impl Camera {
 
         // Now we find point on sphere by clamping to unit circle
         // and finding z component
-        let screen_point_radius = screen_point.magnitude2();
-        let sphere_point = if screen_point_radius > 1.0 {
+        let screen_point_radius_squared = screen_point.magnitude2();
+        let sphere_point = if screen_point_radius_squared >= 1.0 {
             // Points on, or mapped to, the circle itself have no z component
-            (screen_point / screen_point_radius).extend(0.0)
+            (screen_point / screen_point_radius_squared.sqrt()).extend(0.0)
         } else {
             // Points in the circle get "pushed onto" the sphere
             // The rotation axis extends into the screen, hence the negative
-            screen_point.extend(-(1.0 - screen_point_radius).sqrt())
+            screen_point.extend(-(1.0 - screen_point_radius_squared).sqrt())
         };
 
         // If we were contraining axis, that would go here
