@@ -100,16 +100,16 @@ void main() {
                     glutin::WindowEvent::MouseInput { state, button, ..} => {
                         match (state, button) {
                             (glutin::ElementState::Pressed, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Left, aperature::ButtonState::Pressed);
+                                cam.handle_mouse_input(aperture::MouseButton::Left, aperture::ButtonState::Pressed);
                             },
                             (glutin::ElementState::Pressed, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Right, aperature::ButtonState::Pressed);
+                                cam.handle_mouse_input(aperture::MouseButton::Right, aperture::ButtonState::Pressed);
                             },
                             (glutin::ElementState::Released, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Left, aperature::ButtonState::Released);
+                                cam.handle_mouse_input(aperture::MouseButton::Left, aperture::ButtonState::Released);
                             },
                             (glutin::ElementState::Released, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Right, aperature::ButtonState::Released);
+                                cam.handle_mouse_input(aperture::MouseButton::Right, aperture::ButtonState::Released);
                             },
                             _ => (), 
                         }

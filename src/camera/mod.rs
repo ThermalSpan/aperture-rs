@@ -131,7 +131,12 @@ impl Camera {
                                 self.window_width
                             }) / 2.0;
         let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
-        let mouse_point = (mouse_coords - screen_center) / pixel_radius;
+        let mut mouse_point = (mouse_coords - screen_center) / pixel_radius;
+
+        // The pixels y-axis and the screen space y-axis are inverted
+        mouse_point.y *= -1.0;
+
+        // TODO: The above should be a linear transformation.
 
         // Now we find point on sphere by clamping to unit circle
         // and finding z component
@@ -139,7 +144,8 @@ impl Camera {
         let sphere_point = if mouse_radius > 1.0 {
             (mouse_point / mouse_radius).extend(0.0)
         } else {
-            mouse_point.extend((1.0 - mouse_radius).sqrt())
+            // The rotation axis extends into the screen, hence the negative
+            mouse_point.extend(-(1.0 - mouse_radius).sqrt())
         };
 
         // If we were contraining axis, that would go here
@@ -157,7 +163,7 @@ impl Camera {
                 let rotation_axis = self.original_sphere_point.cross(sphere_point);
                 let scalar = self.original_sphere_point.dot(sphere_point);
                 let move_rotation = Quaternion::from_sv(scalar, rotation_axis);
-                self.rotation = move_rotation * self.original_rotation;
+                self.rotation = self.original_rotation * move_rotation;
             }
             _ => (),
         }
@@ -170,7 +176,6 @@ impl Camera {
                 self.state = CamState::Tumble;
                 self.original_sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
                 self.original_rotation = self.rotation.clone();
-                println!("Mouse pressed");
             }
             (_, ButtonState::Released) => {
                 self.state = CamState::Idle;
