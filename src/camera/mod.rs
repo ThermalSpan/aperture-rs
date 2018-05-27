@@ -2,7 +2,7 @@ use cgmath::prelude::*;
 use cgmath::{Basis3, Matrix3, Matrix4, Rad, Vector2, Vector3, Quaternion};
 use std::f32;
 use std::time::Duration;
-use perspective::fov_perspective_transform;
+use perspective;
 
 enum CamState {
     Pan,
@@ -34,6 +34,10 @@ pub struct Camera {
     // These are for maintaining state with the arcball calculations
     original_rotation: Quaternion<f32>,
     original_sphere_point: Vector3<f32>,
+
+    // These are for maintaining state with the pan calculations
+    original_target: Vector3<f32>,
+    original_pan_point: Vector3<f32>,
 
     /// How far the camera is from the target in world coordinates
     #[get = "pub"]
@@ -74,8 +78,13 @@ impl Camera {
             target: Vector3::new(0.0, 0.0, 0.0),
             distance: 50.0,
             prev_mouse_coords: Vector2::zero(),
+
+            // The state calculations can the identities, doesn't matter
             original_rotation: Quaternion::one(),
             original_sphere_point: Vector3::zero(),
+            original_target: Vector3::zero(),
+            original_pan_point: Vector3::zero(),
+
             rotation: Quaternion::from(Basis3::from_angle_y(Rad(-0.5 * f32::consts::PI))),
             window_width: 1.0,
             window_height: 1.0,
@@ -103,6 +112,11 @@ impl Camera {
             )
     }
 
+    /// Get the rotation of the camera
+    pub fn get_rotation(&self) -> Basis3<f32> {
+        Basis3::from(self.rotation)
+    }
+
     /// Get the world coordinates to clipspace coordinates transform
     /// If you are unsure, this is probably the transform you want from the camera.
     pub fn get_clipspace_transform(&self) -> Matrix4<f32> {
@@ -110,12 +124,10 @@ impl Camera {
         let inverse_pos = -self.get_position();
         let pos_transform = Matrix4::from_translation(inverse_pos);
 
-        let rotation_basis = Basis3::from(self.rotation);
-
-        let rotation_transform = Matrix3::from(rotation_basis.invert());
+        let rotation_transform = Matrix3::from(self.get_rotation().invert());
 
         let perspective_transform =
-            fov_perspective_transform(self.field_of_view, self.aspect_ratio, self.far);
+            perspective::fov_perspective_transform(self.field_of_view, self.aspect_ratio, self.far);
 
         // We need to an inverted order of operations becuase the matrix is inverted(?)
         perspective_transform * Matrix4::from(rotation_transform) * pos_transform
@@ -153,6 +165,27 @@ impl Camera {
         sphere_point
     }
 
+    fn mouse_to_pan_point(&self, mouse_coords: Vector2<f32>) -> Vector3<f32> {
+        let pixel_radius = (if self.aspect_ratio >= 1.0 {
+                                self.window_height
+                            } else {
+                                self.window_width
+                            }) / 2.0;
+
+        let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
+        let mut mouse_point = (mouse_coords - screen_center) / pixel_radius;
+
+        // The pixels y-axis and the screen space y-axis are inverted
+        mouse_point.y *= -1.0;
+
+        let near = perspective::fov_near_distance(self.field_of_view);
+        let distance_plane_point = (mouse_point * (self.distance / near)).extend(self.distance);
+
+        let pan_point = Matrix3::from(self.get_rotation()) * distance_plane_point;
+
+        pan_point
+    }
+
     /// Handle mouse movement as pixel coordinates
     pub fn handle_mouse_move(&mut self, mouse_x: f32, mouse_y: f32) {
         self.prev_mouse_coords = Vector2::new(mouse_x, mouse_y);
@@ -164,6 +197,11 @@ impl Camera {
                 let scalar = self.original_sphere_point.dot(sphere_point);
                 let move_rotation = Quaternion::from_sv(scalar, rotation_axis);
                 self.rotation = self.original_rotation * move_rotation;
+            }
+            CamState::Pan => {
+                let pan_point = self.mouse_to_pan_point(self.prev_mouse_coords);
+                let pan_delta = self.original_pan_point - pan_point;
+                self.target = self.original_target + pan_delta;
             }
             _ => (),
         }
@@ -177,10 +215,14 @@ impl Camera {
                 self.original_sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
                 self.original_rotation = self.rotation.clone();
             }
+            (MouseButton::Right, ButtonState::Pressed) => {
+                self.state = CamState::Pan;
+                self.original_pan_point = self.mouse_to_pan_point(self.prev_mouse_coords);
+                self.original_target = self.target.clone();
+            }
             (_, ButtonState::Released) => {
                 self.state = CamState::Idle;
             }
-            _ => (),
         }
     }
 
