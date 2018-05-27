@@ -270,3 +270,97 @@ impl Camera {
         self.target += delta;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use assert::*;
+    use std::default::Default;
+    use std::f32;
+    use super::*;
+    use cgmath::vec2;
+
+    fn make_cam_with_window(window_width: f32, window_height: f32) -> Camera {
+        let mut camera = Camera::new();
+        camera.update(Default::default(), window_width, window_height);
+        camera
+    }
+
+    #[test]
+    fn test_mouse_to_square_screen() {
+        let camera = make_cam_with_window(1024.0, 1024.0);
+        let mut screen_point: [f32; 2];
+
+        // Top Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 0.0)).into();
+        close(&screen_point, &[-1.0, 1.0], f32::EPSILON);
+
+        // Top Rigth
+        screen_point = camera.mouse_to_screen(vec2(1024.0, 0.0)).into();
+        close(&screen_point, &[1.0, 1.0], f32::EPSILON);
+
+        // Bottom Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 1024.0)).into();
+        close(&screen_point, &[-1.0, -1.0], f32::EPSILON);
+
+        // Bottom Right
+        screen_point = camera.mouse_to_screen(vec2(1024.0, 1024.0)).into();
+        close(&screen_point, &[1.0, -1.0], f32::EPSILON);
+
+        // Center
+        screen_point = camera.mouse_to_screen(vec2(512.0, 512.0)).into();
+        close(&screen_point, &[0.0, 0.0], f32::EPSILON);
+    }
+
+    #[test]
+    fn test_mouse_to_wide_screen() {
+        let camera = make_cam_with_window(1024.0, 512.0);
+        let mut screen_point: [f32; 2];
+
+        // Top Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 0.0)).into();
+        close(&screen_point, &[-2.0, 1.0], f32::EPSILON);
+
+        // Top Rigth
+        screen_point = camera.mouse_to_screen(vec2(1024.0, 0.0)).into();
+        close(&screen_point, &[2.0, 1.0], f32::EPSILON);
+
+        // Bottom Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 512.0)).into();
+        close(&screen_point, &[-2.0, -1.0], f32::EPSILON);
+
+        // Bottom Right
+        screen_point = camera.mouse_to_screen(vec2(1024.0, 512.0)).into();
+        close(&screen_point, &[2.0, -1.0], f32::EPSILON);
+
+        // Center
+        screen_point = camera.mouse_to_screen(vec2(512.0, 256.0)).into();
+        close(&screen_point, &[0.0, 0.0], f32::EPSILON);
+    }
+
+    #[test]
+    fn test_mouse_to_tall_screen() {
+        let camera = make_cam_with_window(512.0, 1024.0);
+        let mut screen_point: [f32; 2];
+
+        // Top Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 0.0)).into();
+        close(&screen_point, &[-1.0, 2.0], f32::EPSILON);
+
+        // Top Rigth
+        screen_point = camera.mouse_to_screen(vec2(512.0, 0.0)).into();
+        close(&screen_point, &[1.0, 2.0], f32::EPSILON);
+
+        // Bottom Left
+        screen_point = camera.mouse_to_screen(vec2(0.0, 1024.0)).into();
+        close(&screen_point, &[-1.0, -2.0], f32::EPSILON);
+
+        // Bottom Right
+        screen_point = camera.mouse_to_screen(vec2(512.0, 1024.0)).into();
+        close(&screen_point, &[1.0, -2.0], f32::EPSILON);
+
+        // Center
+        screen_point = camera.mouse_to_screen(vec2(256.0, 512.0)).into();
+        close(&screen_point, &[0.0, 0.0], f32::EPSILON);
+    }
+
+}

@@ -1,6 +1,9 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+// The assert crate is a dev dependency
+// However I need it for unit testing, so I think I need it here?
+extern crate assert;
 extern crate cgmath;
 #[macro_use]
 extern crate getset;

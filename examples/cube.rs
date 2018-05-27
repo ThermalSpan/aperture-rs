@@ -17,10 +17,12 @@ implement_vertex!(Vertex, position);
 
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
-    let window = glutin::WindowBuilder::new();
+    let window = glutin::WindowBuilder::new()
+        .with_title("Cube Example")
+        .with_dimensions(1024, 1024);
     let context = glutin::ContextBuilder::new();
     let display = glium::Display::new(window, context, &events_loop).unwrap();
-        
+
     // We statically include the shader sources, and build the shader program
     let vertex_shader_src = "
 #version 400
@@ -32,7 +34,7 @@ void main() {
     f_color = u_color;
     gl_Position = rotation_matrix * vec4(position, 1.0);
 }";
-        
+
     let fragment_shader_src = "
 #version 400
 in vec4 f_color;
@@ -40,7 +42,7 @@ out vec4 color;
 void main() {
     color = f_color;
 }";
-    
+
     let shader_program =
         glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
             .unwrap();
@@ -52,9 +54,7 @@ void main() {
     for x in vec![-1.0, 1.0] {
         for y in vec![-1.0, 1.0] {
             for z in vec![-1.0, 1.0] {
-                vertices.push(Vertex {
-                    position: [x, y, z],
-                })
+                vertices.push(Vertex { position: [x, y, z] })
             }
         }
     }
@@ -64,60 +64,75 @@ void main() {
     let indices = glium::IndexBuffer::new(
         &display,
         glium::index::PrimitiveType::LinesList,
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         &[0, 1, 1, 3, 3, 2, 2, 0,
           4, 5, 5, 7, 7, 6, 6, 4,
           0, 4, 1, 5, 3, 7, 2, 6u16],
     ).unwrap();
 
     // Drawing parameters
-    let params = glium::DrawParameters { 
+    let params = glium::DrawParameters {
         line_width: Some(5.0),
         blend: glium::Blend::alpha_blending(),
-        ..Default::default() 
+        ..Default::default()
     };
 
     let mut closed = false;
     let mut cam = aperture::Camera::new();
     let fps: f32 = 60.0;
-    let frame_duration_cap = Duration::from_millis( ((1.0 / fps) * 1000.0) as u64);
+    let frame_duration_cap = Duration::from_millis(((1.0 / fps) * 1000.0) as u64);
     let mut current_time = SystemTime::now();
     while !closed {
         let mut target = display.draw();
         // listing the events produced by application and waiting to be received
-        events_loop.poll_events(|ev| {
-            match ev {
-                glutin::Event::WindowEvent { event, .. } => match event {
+        events_loop.poll_events(|ev| match ev {
+            glutin::Event::WindowEvent { event, .. } => {
+                match event {
                     glutin::WindowEvent::Closed => closed = true,
-                    glutin::WindowEvent::MouseWheel {delta, ..} => match delta {
-                        glutin::MouseScrollDelta::PixelDelta(_, y) => {
-                            cam.handle_scroll(y);
-                        },
-                        _ => (),
-                    },
-                    glutin::WindowEvent::CursorMoved {position: (x, y), ..} => {
+                    glutin::WindowEvent::MouseWheel { delta, .. } => {
+                        match delta {
+                            glutin::MouseScrollDelta::PixelDelta(_, y) => {
+                                cam.handle_scroll(y);
+                            }
+                            _ => (),
+                        }
+                    }
+                    glutin::WindowEvent::CursorMoved { position: (x, y), .. } => {
                         cam.handle_mouse_move(x as f32, y as f32);
-                    },
-                    glutin::WindowEvent::MouseInput { state, button, ..} => {
+                    }
+                    glutin::WindowEvent::MouseInput { state, button, .. } => {
                         match (state, button) {
                             (glutin::ElementState::Pressed, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Left, aperture::ButtonState::Pressed);
-                            },
+                                cam.handle_mouse_input(
+                                    aperture::MouseButton::Left,
+                                    aperture::ButtonState::Pressed,
+                                );
+                            }
                             (glutin::ElementState::Pressed, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Right, aperture::ButtonState::Pressed);
-                            },
+                                cam.handle_mouse_input(
+                                    aperture::MouseButton::Right,
+                                    aperture::ButtonState::Pressed,
+                                );
+                            }
                             (glutin::ElementState::Released, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Left, aperture::ButtonState::Released);
-                            },
+                                cam.handle_mouse_input(
+                                    aperture::MouseButton::Left,
+                                    aperture::ButtonState::Released,
+                                );
+                            }
                             (glutin::ElementState::Released, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperture::MouseButton::Right, aperture::ButtonState::Released);
-                            },
+                                cam.handle_mouse_input(
+                                    aperture::MouseButton::Right,
+                                    aperture::ButtonState::Released,
+                                );
+                            }
                             _ => (), 
                         }
-                    },
+                    }
                     _ => (),
-                },
-                _ => ()
+                }
             }
+            _ => (),
         });
 
         let new_time = SystemTime::now();
@@ -131,7 +146,7 @@ void main() {
 
         cam.update(frame_time, window_width, window_height);
 
-        let world_transform = cam.get_clipspace_transform(); 
+        let world_transform = cam.get_clipspace_transform();
 
         // A weird yellow background
         target.clear_color(0.7654, 0.567, 0.1245, 1.0);
@@ -143,7 +158,8 @@ void main() {
             let scale = cgmath::Matrix4::from_scale(frac);
             let object_transform: [[f32; 4]; 4] = (world_transform * scale).into();
 
-            let uniforms = uniform!{
+            let uniforms =
+                uniform!{
                 rotation_matrix: object_transform,
                 u_color: [frac, 0.134 * frac, 1.0 - frac, 0.5]
             };
@@ -162,7 +178,7 @@ void main() {
 
         // Here we limit the framerate to avoid consuming uneeded CPU time
         let elapsed = current_time.elapsed().unwrap();
-        if  elapsed < frame_duration_cap {
+        if elapsed < frame_duration_cap {
             let sleep_time = frame_duration_cap - elapsed;
             sleep(sleep_time);
         }
@@ -170,4 +186,3 @@ void main() {
         target.finish().unwrap();
     }
 }
-
