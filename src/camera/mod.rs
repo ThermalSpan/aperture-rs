@@ -7,8 +7,16 @@ use perspective;
 /// The camera is a state machine, what each input does depends on the state that its in.
 /// The possible states are this enum.
 enum CamState {
+    /// This mode allows the user to move the camera target
     Pan,
+
+    /// This mode allows the user to adjust the camera rotation
     Tumble,
+
+    /// This state is used for have the camera animate to a destination state
+    Transition,
+
+    /// The camera is neither animating nor using mouse movement
     Idle,
 }
 
