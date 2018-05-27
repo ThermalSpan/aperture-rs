@@ -4,6 +4,8 @@ use std::f32;
 use std::time::Duration;
 use perspective;
 
+/// The camera is a state machine, what each input does depends on the state that its in.
+/// The possible states are this enum.
 enum CamState {
     Pan,
     Tumble,
@@ -133,31 +135,53 @@ impl Camera {
         perspective_transform * Matrix4::from(rotation_transform) * pos_transform
     }
 
-    fn mouse_to_sphere_point(&self, mouse_coords: Vector2<f32>) -> Vector3<f32> {
-        // Figure out radius of arc-ball control circle in pixels
-        // If aspect ratio > 1.0 then height is smaller,
-        // So normalize mouse point by removing center then diving by that radius
-        let pixel_radius = (if self.aspect_ratio >= 1.0 {
+    // When dealing with mouse input we need to translate the pixel location into
+    // screenspace. Screenspace is a rectangle, and it must circumscribe the unit circle
+    // When the screen is square, screen space is [-1, 1]^2
+    fn mouse_to_screen(&self, mouse_coords: Vector2<f32>) -> Vector2<f32> {
+
+        // Part of this transfrom is a scaling operation. We can figure this out by figuring out
+        // the radius of the circle in pixels that will map to the radius of the unit circle
+        // The radius is either half of self.window_width or window_height depending on which is
+        // smaller
+        let pixel_radius = (if self.window_width >= self.window_height {
                                 self.window_height
                             } else {
                                 self.window_width
                             }) / 2.0;
+
+        // The other part of the transform is a translation. The origin in mouse coordinates is the
+        // top left corner of the screen. In screen space its the center of the screen.
+        // So we are going to need to know the screen center in mouse space
         let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
-        let mut mouse_point = (mouse_coords - screen_center) / pixel_radius;
 
-        // The pixels y-axis and the screen space y-axis are inverted
-        mouse_point.y *= -1.0;
 
-        // TODO: The above should be a linear transformation.
+        // Translate point then scale
+        let mut screen_point = (mouse_coords - screen_center) / pixel_radius;
+
+        // The last part of the transform is inverting the y-axis, since the mouse y-axis and the
+        // screen space y-axis are inverted
+        screen_point.y *= -1.0;
+
+        screen_point
+    }
+
+    // The ArcBall controls work by mapping points in screen space onto the unit circle
+    // circumscribed by screen space, and then mapping points from that circle on the unit sphere.
+    // In this way, two points on unit sphere can be used to define a rotation.
+    fn mouse_to_sphere_point(&self, mouse_coords: Vector2<f32>) -> Vector3<f32> {
+        let screen_point = self.mouse_to_screen(mouse_coords);
 
         // Now we find point on sphere by clamping to unit circle
         // and finding z component
-        let mouse_radius = mouse_point.magnitude2();
-        let sphere_point = if mouse_radius > 1.0 {
-            (mouse_point / mouse_radius).extend(0.0)
+        let screen_point_radius = screen_point.magnitude2();
+        let sphere_point = if screen_point_radius > 1.0 {
+            // Points on, or mapped to, the circle itself have no z component
+            (screen_point / screen_point_radius).extend(0.0)
         } else {
+            // Points in the circle get "pushed onto" the sphere
             // The rotation axis extends into the screen, hence the negative
-            mouse_point.extend(-(1.0 - mouse_radius).sqrt())
+            screen_point.extend(-(1.0 - screen_point_radius).sqrt())
         };
 
         // If we were contraining axis, that would go here
@@ -165,22 +189,24 @@ impl Camera {
         sphere_point
     }
 
+    // When panning we want to the mouse to act like it was dragging the camera target around
+    // That means we need to map the screen space on the plane that is camera.distance away and
+    // orthogronal to the viewing direction of the camera
     fn mouse_to_pan_point(&self, mouse_coords: Vector2<f32>) -> Vector3<f32> {
-        let pixel_radius = (if self.aspect_ratio >= 1.0 {
-                                self.window_height
-                            } else {
-                                self.window_width
-                            }) / 2.0;
+        let screen_point = self.mouse_to_screen(mouse_coords);
 
-        let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
-        let mut mouse_point = (mouse_coords - screen_center) / pixel_radius;
-
-        // The pixels y-axis and the screen space y-axis are inverted
-        mouse_point.y *= -1.0;
-
+        // Using similiar triangles we can scale the screen point onto a plane camera.distance away
+        // since we know that the "distance" to the screen plane is defined by the near attribute
+        // of our viewing frustrum
+        //
+        // point_distance / point_screen = distance / near
+        // =>
+        // point_distance = point_screen * (disance / near)
         let near = perspective::fov_near_distance(self.field_of_view);
-        let distance_plane_point = (mouse_point * (self.distance / near)).extend(self.distance);
+        let distance_plane_point = (screen_point * (self.distance / near)).extend(self.distance);
 
+        // Then we need to rotate that point to so that it matches the direction our camera is
+        // facing
         let pan_point = Matrix3::from(self.get_rotation()) * distance_plane_point;
 
         pan_point
@@ -192,6 +218,9 @@ impl Camera {
 
         match self.state {
             CamState::Tumble => {
+                // This is the Arcball movement
+                // The original and new sphere point define a rotation
+                // so we convert that into a quaternion and update the camera's rotation
                 let sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
                 let rotation_axis = self.original_sphere_point.cross(sphere_point);
                 let scalar = self.original_sphere_point.dot(sphere_point);
@@ -199,6 +228,7 @@ impl Camera {
                 self.rotation = self.original_rotation * move_rotation;
             }
             CamState::Pan => {
+                // The original and new pan point define a translation
                 let pan_point = self.mouse_to_pan_point(self.prev_mouse_coords);
                 let pan_delta = self.original_pan_point - pan_point;
                 self.target = self.original_target + pan_delta;
