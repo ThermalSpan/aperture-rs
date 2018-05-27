@@ -1,5 +1,5 @@
 [package]
-name = "aperature"
+name = "aperture"
 version = "0.1.0"
 authors = ["ThermalSpan <russell.w.bentley@icloud.com>"]
 readme = "README.md"

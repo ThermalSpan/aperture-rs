@@ -13,4 +13,3 @@ pub use perspective::fov_perspective_transform;
 pub use camera::Camera;
 pub use camera::MouseButton;
 pub use camera::ButtonState;
-

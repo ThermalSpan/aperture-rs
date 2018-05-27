@@ -1,7 +1,7 @@
 extern crate cgmath;
 #[macro_use]
 extern crate glium;
-extern crate aperature;
+extern crate aperture;
 
 use glium::glutin;
 use glium::Surface;
@@ -77,7 +77,7 @@ void main() {
     };
 
     let mut closed = false;
-    let mut cam = aperature::Camera::new();
+    let mut cam = aperture::Camera::new();
     let fps: f32 = 60.0;
     let frame_duration_cap = Duration::from_millis( ((1.0 / fps) * 1000.0) as u64);
     let mut current_time = SystemTime::now();
@@ -100,16 +100,16 @@ void main() {
                     glutin::WindowEvent::MouseInput { state, button, ..} => {
                         match (state, button) {
                             (glutin::ElementState::Pressed, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperature::MouseButton::Left, aperature::ButtonState::Pressed);
+                                cam.handle_mouse_input(aperture::MouseButton::Left, aperature::ButtonState::Pressed);
                             },
                             (glutin::ElementState::Pressed, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperature::MouseButton::Right, aperature::ButtonState::Pressed);
+                                cam.handle_mouse_input(aperture::MouseButton::Right, aperature::ButtonState::Pressed);
                             },
                             (glutin::ElementState::Released, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(aperature::MouseButton::Left, aperature::ButtonState::Released);
+                                cam.handle_mouse_input(aperture::MouseButton::Left, aperature::ButtonState::Released);
                             },
                             (glutin::ElementState::Released, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(aperature::MouseButton::Right, aperature::ButtonState::Released);
+                                cam.handle_mouse_input(aperture::MouseButton::Right, aperature::ButtonState::Released);
                             },
                             _ => (), 
                         }
