@@ -155,6 +155,9 @@ impl Camera {
 
                 if self.transition_completed >= self.transition_duration {
                     self.state = CamState::Idle;
+                    self.rotation = self.transition_end_rotation;
+                    self.target = self.transition_end_target;
+                    self.distance = self.transition_end_distance;
                 } else {
                     let t = self.transition_completed / self.transition_duration;
 
