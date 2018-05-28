@@ -86,70 +86,18 @@ void main() {
         let mut target = display.draw();
         // listing the events produced by application and waiting to be received
         events_loop.poll_events(|ev| match ev {
-            glutin::Event::WindowEvent { event, .. } => {
-                match event {
-                    glutin::WindowEvent::Closed => closed = true,
-                    glutin::WindowEvent::MouseWheel { delta, .. } => {
-                        match delta {
-                            glutin::MouseScrollDelta::PixelDelta(_, y) => {
-                                cam.handle_scroll(y);
-                            }
-                            _ => (),
-                        }
-                    }
-                    glutin::WindowEvent::CursorMoved { position: (x, y), .. } => {
-                        cam.handle_mouse_move(x as f32, y as f32);
-                    }
-                    glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        match (state, button) {
-                            (glutin::ElementState::Pressed, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(
-                                    aperture::MouseButton::Left,
-                                    aperture::ButtonState::Pressed,
-                                );
-                            }
-                            (glutin::ElementState::Pressed, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(
-                                    aperture::MouseButton::Right,
-                                    aperture::ButtonState::Pressed,
-                                );
-                            }
-                            (glutin::ElementState::Released, glutin::MouseButton::Left) => {
-                                cam.handle_mouse_input(
-                                    aperture::MouseButton::Left,
-                                    aperture::ButtonState::Released,
-                                );
-                            }
-                            (glutin::ElementState::Released, glutin::MouseButton::Right) => {
-                                cam.handle_mouse_input(
-                                    aperture::MouseButton::Right,
-                                    aperture::ButtonState::Released,
-                                );
-                            }
-                            _ => (), 
-                        }
-                    }
-                    glutin::WindowEvent::KeyboardInput {
-                        input: glutin::KeyboardInput { scancode, state, .. }, ..
-                    } => {
-                        match (scancode, state) {
-                            (1, glutin::ElementState::Pressed) => {
-                                cam.set_current_as_default();
-                            }
-                            (2, glutin::ElementState::Pressed) => {
-                                cam.transition_to_default();
-                            }
-                            _ => (),
-                        }
-                    }
-                    _ => (),
-                }
+            glutin::Event::WindowEvent { event: glutin::WindowEvent::Closed, .. } => {
+                closed = true;
             }
-            _ => (),
+            event => {
+                aperture::camera_event_handler(&mut cam, event);
+            }
         });
 
         let new_time = SystemTime::now();
         let frame_time = current_time.elapsed().unwrap();
+        let elapsed_millis =
+                    (1000 * frame_time.as_secs() + frame_time.subsec_millis() as u64) as f32;
         current_time = new_time;
 
         let (window_width, window_height) = {
@@ -157,7 +105,9 @@ void main() {
             (window_width_i as f32, window_height_i as f32)
         };
 
-        cam.update(frame_time, window_width, window_height);
+
+
+        cam.update(elapsed_millis, window_width, window_height);
 
         let world_transform = cam.get_clipspace_transform();
 

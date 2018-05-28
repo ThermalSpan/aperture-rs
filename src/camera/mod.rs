@@ -1,11 +1,11 @@
 use cgmath::prelude::*;
 use cgmath::{Basis3, Matrix3, Matrix4, Rad, Vector2, Vector3, Quaternion};
 use std::f32;
-use std::time::Duration;
 use perspective;
 
 /// The camera is a state machine, what each input does depends on the state that its in.
 /// The possible states are this enum.
+#[derive(PartialEq, Eq)]
 enum CamState {
     /// This mode allows the user to move the camera target
     Pan,
@@ -15,6 +15,9 @@ enum CamState {
 
     /// This state is used for have the camera animate to a destination state
     Transition,
+
+    /// This state continues rotation from tumble mode when user lets go
+    IdleOrbit,
 
     /// The camera is neither animating nor using mouse movement
     Idle,
@@ -57,6 +60,12 @@ pub struct Camera {
     // These are for maintaining state with the pan calculations
     original_target: Vector3<f32>,
     original_pan_point: Vector3<f32>,
+
+    // Orbit
+    orbit_enabled: bool,
+    orbit_velocity: f32,
+    last_rotation: Quaternion<f32>,
+    tumble_duration: f32,
 
     // Transition
     transition_end_rotation: Quaternion<f32>,
@@ -122,6 +131,12 @@ impl Camera {
             original_sphere_point: Vector3::zero(),
             original_pan_point: Vector3::zero(),
 
+            // OrbitDelta
+            orbit_velocity: 0.0,
+            orbit_enabled: false,
+            last_rotation: Quaternion::one(),
+            tumble_duration: 1.0,
+
             transition_end_rotation: Quaternion::one(),
             transition_end_target: Vector3::zero(),
             transition_end_distance: 1.0,
@@ -142,15 +157,13 @@ impl Camera {
     /// and the timing for orbital mechanics. Ideally it should be called at the begining of your
     /// "simulation loop", right after you have calculated your frame time.
     /// TODO: Duration should be a f32 millis too
-    pub fn update(&mut self, elapsed_time: Duration, window_width: f32, window_height: f32) {
+    pub fn update(&mut self, elapsed_millis: f32, window_width: f32, window_height: f32) {
         self.window_width = window_width;
         self.window_height = window_height;
         self.aspect_ratio = window_width / window_height;
 
         match self.state {
             CamState::Transition => {
-                let elapsed_millis =
-                    (1000 * elapsed_time.as_secs() + elapsed_time.subsec_millis() as u64) as f32;
                 self.transition_completed += elapsed_millis;
 
                 if self.transition_completed >= self.transition_duration {
@@ -169,6 +182,14 @@ impl Camera {
                         t,
                     );
                 }
+            }
+            CamState::IdleOrbit => {
+                let mut current_angle = self.rotation.s.acos() * 2.0;
+                current_angle += (elapsed_millis / 1000.0) * self.orbit_velocity;
+                self.rotation.s = (current_angle / 2.0).cos();
+            }
+            CamState::Tumble => {
+                self.tumble_duration += elapsed_millis;
             }
             _ => (),
         }
@@ -331,7 +352,8 @@ impl Camera {
                 let rotation_axis = self.original_sphere_point.cross(sphere_point);
                 let scalar = self.original_sphere_point.dot(sphere_point);
                 let move_rotation = Quaternion::from_sv(scalar, rotation_axis);
-                self.rotation = self.original_rotation * move_rotation;
+                let new_rotation = self.original_rotation * move_rotation;
+                self.rotation = new_rotation;
             }
             CamState::Pan => {
                 // The original and new pan point define a translation
@@ -343,11 +365,16 @@ impl Camera {
         }
     }
 
+    pub fn toggle_orbit(&mut self) {
+        self.orbit_enabled = !self.orbit_enabled;
+    }
+
     /// Handle mouse clicks,
     pub fn handle_mouse_input(&mut self, button: MouseButton, state: ButtonState) {
         match (button, state) {
             (MouseButton::Left, ButtonState::Pressed) => {
                 self.state = CamState::Tumble;
+                self.tumble_duration = 0.0;
                 self.original_sphere_point = self.mouse_to_sphere_point(self.prev_mouse_coords);
                 self.original_rotation = self.rotation.clone();
             }
@@ -357,7 +384,15 @@ impl Camera {
                 self.original_target = self.target.clone();
             }
             (_, ButtonState::Released) => {
-                self.state = CamState::Idle;
+                if self.orbit_enabled && self.state == CamState::Tumble {
+                    self.state = CamState::IdleOrbit;
+
+                //let angle_delta= self.last_tumble_delta.s.cos() * 2.0;
+                //let angle_delta = new_angle - old_angle;
+                //self.orbit_velocity = (angle_delta * 1000.0) / self.tumble_duration;
+                } else {
+                    self.state = CamState::Idle;
+                }
             }
         }
     }
