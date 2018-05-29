@@ -42,3 +42,9 @@ pub fn fov_perspective_transform(
     let left = -right;
     perspective_transform(near, far, left, right, top, bottom)
 }
+
+/// The near plane distance is dependent on the field of view. It is useful to have this
+/// calculation be seperate
+pub fn fov_near_distance(field_of_view: f32) -> f32 {
+    1.0 / (field_of_view / 2.0).tan()
+}

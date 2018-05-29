@@ -339,7 +339,7 @@ impl Camera {
         // point_distance / point_screen = distance / near
         // =>
         // point_distance = point_screen * (disance / near)
-        let near = self.near;
+        let near = perspective::fov_near_distance(self.field_of_view);
         let distance_plane_point = (screen_point * (self.distance / near)).extend(self.distance);
 
         // Then we need to rotate that point to so that it matches the direction our camera is
