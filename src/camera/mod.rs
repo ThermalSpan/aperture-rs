@@ -81,6 +81,11 @@ pub struct Camera {
     #[set = "pub"]
     distance: f32,
 
+    /// The distance from the camera to the near plane of the viewing frustrum
+    #[get = "pub"]
+    #[set = "pub"]
+    near: f32,
+
     /// The distance from the camera to the far plane of the viewing frustrum
     #[get = "pub"]
     #[set = "pub"]
@@ -148,7 +153,8 @@ impl Camera {
             window_height: 1.0,
             aspect_ratio: 1.0,
             field_of_view: f32::consts::PI / 2.0,
-            far: 100.0,
+            near: 0.01,
+            far: 1000.0,
             scroll_modifier: 1.0 / 200.0,
         }
     }
@@ -255,8 +261,12 @@ impl Camera {
 
         let rotation_transform = Matrix3::from(self.get_rotation().invert());
 
-        let perspective_transform =
-            perspective::fov_perspective_transform(self.field_of_view, self.aspect_ratio, self.far);
+        let perspective_transform = perspective::fov_perspective_transform(
+            self.field_of_view,
+            self.aspect_ratio,
+            self.near,
+            self.far,
+        );
 
         // We need to an inverted order of operations becuase the matrix is inverted(?)
         perspective_transform * Matrix4::from(rotation_transform) * pos_transform
@@ -329,7 +339,7 @@ impl Camera {
         // point_distance / point_screen = distance / near
         // =>
         // point_distance = point_screen * (disance / near)
-        let near = perspective::fov_near_distance(self.field_of_view);
+        let near = self.near;
         let distance_plane_point = (screen_point * (self.distance / near)).extend(self.distance);
 
         // Then we need to rotate that point to so that it matches the direction our camera is

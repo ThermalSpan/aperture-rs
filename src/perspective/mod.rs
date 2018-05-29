@@ -30,14 +30,15 @@ pub fn perspective_transform(
 /// Create a perspective transform that takes eye space coordinates into clip space
 /// using field of view and aspect ratio to define the viewing frustrum. We assume
 /// that the center of the near plane is also the center of the screen.
-pub fn fov_perspective_transform(field_of_view: f32, aspect_ratio: f32, far: f32) -> Matrix4<f32> {
-    let near = fov_near_distance(field_of_view);
-
-    perspective_transform(near, far, -aspect_ratio, aspect_ratio, -1.0, 1.0)
-}
-
-/// The near plane distance is dependent on the field of view. It is useful to have this
-/// calculation be seperate
-pub fn fov_near_distance(field_of_view: f32) -> f32 {
-    1.0 / (field_of_view / 2.0).tan()
+pub fn fov_perspective_transform(
+    field_of_view: f32,
+    aspect_ratio: f32,
+    near: f32,
+    far: f32,
+) -> Matrix4<f32> {
+    let top = near * (field_of_view / 2.0).tan();
+    let bottom = -top;
+    let right = top * aspect_ratio;
+    let left = -right;
+    perspective_transform(near, far, left, right, top, bottom)
 }
