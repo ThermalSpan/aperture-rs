@@ -40,7 +40,7 @@ pub fn fov_perspective_transform(
     let bottom = -top;
     let right = top * aspect_ratio;
     let left = -right;
-    perspective_transform(near, far, left, right, top, bottom)
+    perspective_transform(near, far, left, right, bottom, top)
 }
 
 /// The near plane distance is dependent on the field of view. It is useful to have this
