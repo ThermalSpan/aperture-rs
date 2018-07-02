@@ -3,11 +3,11 @@ extern crate cgmath;
 extern crate glium;
 extern crate aperture;
 
+use cgmath::prelude::*;
 use glium::glutin;
 use glium::Surface;
-use cgmath::prelude::*;
-use std::time::{Duration, SystemTime};
 use std::thread::sleep;
+use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -54,7 +54,9 @@ void main() {
     for x in vec![-1.0, 1.0] {
         for y in vec![-1.0, 1.0] {
             for z in vec![-1.0, 1.0] {
-                vertices.push(Vertex { position: [x, y, z] })
+                vertices.push(Vertex {
+                    position: [x, y, z],
+                })
             }
         }
     }
@@ -86,7 +88,10 @@ void main() {
         let mut target = display.draw();
         // listing the events produced by application and waiting to be received
         events_loop.poll_events(|ev| match ev {
-            glutin::Event::WindowEvent { event: glutin::WindowEvent::Closed, .. } => {
+            glutin::Event::WindowEvent {
+                event: glutin::WindowEvent::Closed,
+                ..
+            } => {
                 closed = true;
             }
             event => {
@@ -97,15 +102,13 @@ void main() {
         let new_time = SystemTime::now();
         let frame_time = current_time.elapsed().unwrap();
         let elapsed_millis =
-                    (1000 * frame_time.as_secs() + frame_time.subsec_millis() as u64) as f32;
+            (1000 * frame_time.as_secs() + frame_time.subsec_millis() as u64) as f32;
         current_time = new_time;
 
         let (window_width, window_height) = {
             let (window_width_i, window_height_i) = target.get_dimensions();
             (window_width_i as f32, window_height_i as f32)
         };
-
-
 
         cam.update(elapsed_millis, window_width, window_height);
 
@@ -121,8 +124,7 @@ void main() {
             let scale = cgmath::Matrix4::from_scale(frac);
             let object_transform: [[f32; 4]; 4] = (world_transform * scale).into();
 
-            let uniforms =
-                uniform!{
+            let uniforms = uniform!{
                 rotation_matrix: object_transform,
                 u_color: [frac, 0.134 * frac, 1.0 - frac, 0.5]
             };

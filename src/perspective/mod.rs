@@ -1,6 +1,5 @@
 use cgmath::Matrix4;
 
-
 /// Create a perspective transform that takes eye space coordinates into clip space
 /// using all the specification needed to defined a viewing frustrum
 pub fn perspective_transform(

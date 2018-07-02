@@ -15,10 +15,10 @@ mod camera;
 mod eventhandler;
 mod perspective;
 
-#[cfg(feature = "eventhandler")]
-pub use eventhandler::camera_event_handler;
-pub use perspective::perspective_transform;
-pub use perspective::fov_perspective_transform;
+pub use camera::ButtonState;
 pub use camera::Camera;
 pub use camera::MouseButton;
-pub use camera::ButtonState;
+#[cfg(feature = "eventhandler")]
+pub use eventhandler::camera_event_handler;
+pub use perspective::fov_perspective_transform;
+pub use perspective::perspective_transform;

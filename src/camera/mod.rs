@@ -1,7 +1,7 @@
 use cgmath::prelude::*;
-use cgmath::{Basis3, Matrix3, Matrix4, Rad, Vector2, Vector3, Quaternion};
-use std::f32;
+use cgmath::{Basis3, Matrix3, Matrix4, Quaternion, Rad, Vector2, Vector3};
 use perspective;
+use std::f32;
 
 /// The camera is a state machine, what each input does depends on the state that its in.
 /// The possible states are this enum.
@@ -181,12 +181,11 @@ impl Camera {
                     let t = self.transition_completed / self.transition_duration;
 
                     self.target = (1.0 - t) * self.original_target + t * self.transition_end_target;
-                    self.distance = (1.0 - t) * self.original_distance +
-                        t * self.transition_end_distance;
-                    self.rotation = self.original_rotation.slerp(
-                        self.transition_end_rotation,
-                        t,
-                    );
+                    self.distance =
+                        (1.0 - t) * self.original_distance + t * self.transition_end_distance;
+                    self.rotation = self
+                        .original_rotation
+                        .slerp(self.transition_end_rotation, t);
                 }
             }
             CamState::IdleOrbit => {
@@ -241,10 +240,10 @@ impl Camera {
 
     /// Get the position of the camera in world coordinates
     pub fn get_position(&self) -> Vector3<f32> {
-        self.target +
-            self.rotation.rotate_vector(
-                Vector3::unit_z() * self.distance,
-            )
+        self.target
+            + self
+                .rotation
+                .rotate_vector(Vector3::unit_z() * self.distance)
     }
 
     /// Get the rotation of the camera
@@ -276,22 +275,20 @@ impl Camera {
     // screenspace. Screenspace is a rectangle, and it must circumscribe the unit circle
     // When the screen is square, screen space is [-1, 1]^2
     fn mouse_to_screen(&self, mouse_coords: Vector2<f32>) -> Vector2<f32> {
-
         // Part of this transfrom is a scaling operation. We can figure this out by figuring out
         // the radius of the circle in pixels that will map to the radius of the unit circle
         // The radius is either half of self.window_width or window_height depending on which is
         // smaller
         let pixel_radius = (if self.window_width >= self.window_height {
-                                self.window_height
-                            } else {
-                                self.window_width
-                            }) / 2.0;
+            self.window_height
+        } else {
+            self.window_width
+        }) / 2.0;
 
         // The other part of the transform is a translation. The origin in mouse coordinates is the
         // top left corner of the screen. In screen space its the center of the screen.
         // So we are going to need to know the screen center in mouse space
         let screen_center = Vector2::new(self.window_width, self.window_height) * 0.5;
-
 
         // Translate point then scale
         let mut screen_point = (mouse_coords - screen_center) / pixel_radius;
@@ -424,11 +421,11 @@ impl Camera {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use assert::*;
+    use cgmath::vec2;
     use std::default::Default;
     use std::f32;
-    use super::*;
-    use cgmath::vec2;
 
     fn make_cam_with_window(window_width: f32, window_height: f32) -> Camera {
         let mut camera = Camera::new();
